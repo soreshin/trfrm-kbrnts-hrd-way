@@ -37,9 +37,11 @@ data "yandex_compute_image" "ubuntu20_04" {
 ######################################################
 #                   Controllers                      #
 ######################################################
-resource "yandex_compute_instance" "controller-0" {
-  name                      = "controller-0"
-  hostname                  = "controller-0"
+resource "yandex_compute_instance" "controllers" {
+  count = 3
+
+  name                      = "controller-${count.index}"
+  hostname                  = "controller-${count.index}"
   allow_stopping_for_update = true
 
   labels = {
@@ -61,73 +63,7 @@ resource "yandex_compute_instance" "controller-0" {
   network_interface {
     subnet_id  = yandex_vpc_subnet.kubernetes.id
     nat        = true
-    ip_address = "10.240.0.10"
-  }
-
-  metadata = {
-    user-data = templatefile("user-data.tfpl", {
-      ssh_public_key = var.ssh_public_key
-    })
-  }
-}
-resource "yandex_compute_instance" "controller-1" {
-  name                      = "controller-1"
-  hostname                  = "controller-1"
-  allow_stopping_for_update = true
-
-  labels = {
-    type    = "controller"
-    project = "kubernetes-the-hard-way"
-  }
-
-  resources {
-    cores  = 2
-    memory = 8
-  }
-
-  boot_disk {
-    initialize_params {
-      image_id = data.yandex_compute_image.ubuntu20_04.image_id
-    }
-  }
-
-  network_interface {
-    subnet_id  = yandex_vpc_subnet.kubernetes.id
-    nat        = true
-    ip_address = "10.240.0.11"
-  }
-
-  metadata = {
-    user-data = templatefile("user-data.tfpl", {
-      ssh_public_key = var.ssh_public_key
-    })
-  }
-}
-resource "yandex_compute_instance" "controller-2" {
-  name                      = "controller-2"
-  hostname                  = "controller-2"
-  allow_stopping_for_update = true
-
-  labels = {
-    type    = "controller"
-    project = "kubernetes-the-hard-way"
-  }
-
-  resources {
-    cores  = 2
-    memory = 8
-  }
-
-  boot_disk {
-    initialize_params {
-      image_id = data.yandex_compute_image.ubuntu20_04.image_id
-    }
-  }
-
-  network_interface {
-    subnet_id  = yandex_vpc_subnet.kubernetes.id
-    nat        = true
-    ip_address = "10.240.0.12"
+    ip_address = "10.240.0.1${count.index}"
   }
 
   metadata = {
@@ -152,9 +88,11 @@ resource "yandex_compute_instance" "controller-2" {
 ######################################################
 #                      Workers                       #
 ######################################################
-resource "yandex_compute_instance" "worker-0" {
-  name                      = "worker-0"
-  hostname                  = "worker-0"
+resource "yandex_compute_instance" "workers" {
+  count = 3
+
+  name                      = "worker-${count.index}"
+  hostname                  = "worker-${count.index}"
   allow_stopping_for_update = true
 
   labels = {
@@ -176,75 +114,7 @@ resource "yandex_compute_instance" "worker-0" {
   network_interface {
     subnet_id  = yandex_vpc_subnet.kubernetes.id
     nat        = true
-    ip_address = "10.240.0.20"
-  }
-
-  metadata = {
-    user-data = templatefile("user-data.tfpl", {
-      ssh_public_key = var.ssh_public_key
-    })
-    pod-cidr  = "10.200.0.0/24"
-  }
-}
-resource "yandex_compute_instance" "worker-1" {
-  name                      = "worker-1"
-  hostname                  = "worker-1"
-  allow_stopping_for_update = true
-
-  labels = {
-    type    = "worker"
-    project = "kubernetes-the-hard-way"
-  }
-
-  resources {
-    cores  = 2
-    memory = 8
-  }
-
-  boot_disk {
-    initialize_params {
-      image_id = data.yandex_compute_image.ubuntu20_04.image_id
-    }
-  }
-
-  network_interface {
-    subnet_id  = yandex_vpc_subnet.kubernetes.id
-    nat        = true
-    ip_address = "10.240.0.21"
-  }
-
-  metadata = {
-    user-data = templatefile("user-data.tfpl", {
-      ssh_public_key = var.ssh_public_key
-    })
-    pod-cidr  = "10.200.0.0/24"
-  }
-}
-resource "yandex_compute_instance" "worker-2" {
-  name                      = "worker-2"
-  hostname                  = "worker-2"
-  allow_stopping_for_update = true
-
-  labels = {
-    type    = "worker"
-    project = "kubernetes-the-hard-way"
-  }
-
-  resources {
-    cores  = 2
-    memory = 8
-  }
-
-  boot_disk {
-    initialize_params {
-      image_id = data.yandex_compute_image.ubuntu20_04.image_id
-    }
-  }
-
-  network_interface {
-    subnet_id  = yandex_vpc_subnet.kubernetes.id
-    nat        = true
-    ip_address = "10.240.0.22"
+    ip_address = "10.240.0.2${count.index}"
   }
 
   metadata = {
@@ -292,9 +162,7 @@ resource "yandex_lb_target_group" "kubernetes-target-pool" {
   region_id = "ru-central1"
 
   dynamic "target" {
-    for_each = [yandex_compute_instance.controller-0.network_interface.0.ip_address,
-      yandex_compute_instance.controller-1.network_interface.0.ip_address,
-    yandex_compute_instance.controller-2.network_interface.0.ip_address]
+    for_each = yandex_compute_instance.controllers.*.network_interface.0.ip_address
 
     content {
       subnet_id = yandex_vpc_subnet.kubernetes.id
